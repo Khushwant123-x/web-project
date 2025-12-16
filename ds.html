@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>DSA Visualizer — Blocks: Arrays, List, Stack, Queue, Tree, Graph</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  :root {
+    --bg: #0f172a; --panel: #111827; --text: #e5e7eb; --muted: #94a3b8;
+    --accent: #22d3ee; --accent2: #a78bfa; --good: #34d399; --bad: #f87171; --warn: #fbbf24;
+    --block: #0b1220; --border: #334155;
+  }
+  body { margin:0; font-family: Inter, system-ui, Arial, sans-serif; background: var(--bg); color: var(--text); }
+  header { padding:14px 20px; border-bottom:1px solid #1f2937; background:#0b1220; }
+  h1 { margin:0; font-size:20px; letter-spacing:0.2px; }
+  .tabs { display:flex; gap:8px; padding:10px 16px; border-bottom:1px solid #1f2937; background:#0b1220; flex-wrap:wrap; }
+  .tab { padding:8px 12px; border-radius:8px; border:1px solid var(--border); color: var(--muted); cursor:pointer; }
+  .tab.active { color:#0b1220; background: linear-gradient(90deg, var(--accent), var(--accent2)); border:none; font-weight:600; }
+  .container { display:grid; grid-template-columns: 320px 1fr; gap:14px; padding:14px; }
+  .card { background: var(--panel); border:1px solid #1f2937; border-radius:10px; padding:12px; }
+  .controls label { display:block; font-size:13px; color: var(--muted); margin:8px 0 6px; }
+  .controls input, .controls select, .controls button {
+    width: 100%; padding:8px 10px; margin-bottom:10px; border-radius:8px; border:1px solid var(--border); background: var(--block); color: var(--text);
+  }
+  .row { display:flex; gap:8px; }
+  .row > * { flex:1; }
+  button.primary { background: linear-gradient(90deg, var(--accent), var(--accent2)); border:none; color:#0b1220; font-weight:600; }
+  button.secondary { border-color: var(--border); background: var(--block); }
+  button:disabled { opacity:0.6; cursor:not-allowed; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:12px; background: var(--block); border:1px solid var(--border); color: var(--muted); margin-bottom:8px; }
+
+  /* Boards and logs */
+  .board { min-height: 360px; display:flex; align-items:center; justify-content:center; position:relative; gap:12px; padding:16px; border-radius:10px; background: var(--block); border:1px dashed #1f2937; overflow:auto; }
+  .log { height: 160px; overflow:auto; border-top:1px solid #1f2937; margin-top:10px; padding-top:8px; font-size:13px; }
+  .log p { margin:4px 0; color:#cbd5e1; }
+
+  /* Block visuals (square style) */
+  .blocks-row { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start; justify-content:center; }
+  .block {
+    width: 52px; height: 52px; display:flex; align-items:center; justify-content:center;
+    background: #0b1325; border:2px solid var(--border); border-radius:6px; font-weight:600;
+    position:relative; transition:transform 160ms ease, border-color 160ms ease, background 160ms ease;
+  }
+  .block.small { width:44px; height:44px; }
+  .block.active { border-color: var(--accent); }
+  .block.compare { border-color: var(--warn); }
+  .block.swap { border-color: var(--bad); }
+  .block.done { border-color: var(--good); }
+  .idx { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); font-size:11px; color: var(--muted); }
+  .arrow { font-size:18px; color: var(--muted); margin:0 2px; }
+
+  /* Vertical stacks (for stack) */
+  .vertical { display:flex; flex-direction:column-reverse; gap:8px; align-items:center; }
+  .label { font-size:12px; color: var(--muted); margin-top:4px; }
+
+  /* Tree layered */
+  .tree { display:flex; flex-direction:column; align-items:center; gap:26px; width:100%; }
+  .tree-level { display:flex; gap:16px; justify-content:center; }
+  .node { width: 52px; height: 52px; display:flex; align-items:center; justify-content:center; border:2px solid var(--border); border-radius:6px; background:#0b1325; font-weight:600; }
+  .node.active { border-color: var(--accent); }
+
+  /* Graph adjacency list */
+  .adj { width:100%; max-width:560px; padding:10px; border-radius:8px; border:1px solid var(--border); background:#0b1325; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; color:#cbd5e1; }
+  .adj .line { display:flex; gap:8px; align-items:center; margin:4px 0; }
+  .adj .name { font-weight:700; color:#e5e7eb; }
+</style>
+</head>
+<body>
+<header>
+  <h1>DSA Visualizer — Square Blocks</h1>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="arrays">Arrays & Sorts</div>
+  <div class="tab" data-tab="list">Linked List</div>
+  <div class="tab" data-tab="stackqueue">Stack & Queue</div>
+  <div class="tab" data-tab="tree">Binary Tree</div>
+  <div class="tab" data-tab="graph">Graph</div>
+</div>
+
+<div class="container">
+  <!-- Controls -->
+  <div class="card controls">
+    <label>Global speed (ms)</label>
+    <input id="speed" type="number" min="50" max="1200" value="220" />
+
+    <!-- Arrays -->
+    <div data-panel="arrays">
+      <label>Algorithm</label>
+      <select id="algo">
+        <option value="selection">Selection Sort</option>
+        <option value="insertion">Insertion Sort</option>
+        <option value="bubble">Bubble Sort</option>
+        <option value="binary">Binary Search</option>
+      </select>
+      <div class="row">
+        <div>
+          <label>Array size</label>
+          <input id="size" type="number" min="5" max="60" value="10" />
+        </div>
+        <div>
+          <label>Values (comma-separated)</label>
+          <input id="values" type="text" placeholder="e.g., 12,5,9,3,7" />
+        </div>
+      </div>
+      <div id="binaryTargetWrap" style="display:none;">
+        <label>Target for Binary Search</label>
+        <input id="target" type="number" placeholder="e.g., 7" />
+      </div>
+      <div class="row">
+        <button id="generate" class="secondary">Generate</button>
+        <button id="run" class="primary">Run</button>
+      </div>
+    </div>
+
+    <!-- Linked List -->
+    <div data-panel="list" style="display:none;">
+      <label>Operation</label>
+      <select id="listOp">
+        <option value="append">Append</option>
+        <option value="prepend">Prepend</option>
+        <option value="insertAt">Insert at index</option>
+        <option value="deleteAt">Delete at index</option>
+        <option value="reverse">Reverse</option>
+      </select>
+      <div class="row">
+        <div>
+          <label>Value</label>
+          <input id="listVal" type="number" placeholder="e.g., 10" />
+        </div>
+        <div>
+          <label>Index</label>
+          <input id="listIdx" type="number" placeholder="e.g., 2" />
+        </div>
+      </div>
+      <div class="row">
+        <button id="listInit" class="secondary">Init random list</button>
+        <button id="listRun" class="primary">Apply</button>
+      </div>
+    </div>
+
+    <!-- Stack & Queue -->
+    <div data-panel="stackqueue" style="display:none;">
+      <label>Structure</label>
+      <select id="sqStruct">
+        <option value="stack">Stack</option>
+        <option value="queue">Queue</option>
+      </select>
+      <div class="row">
+        <div>
+          <label>Value</label>
+          <input id="sqVal" type="number" placeholder="e.g., 42" />
+        </div>
+      </div>
+      <div class="row">
+        <button id="sqPush" class="primary">Push/Enqueue</button>
+        <button id="sqPop" class="secondary">Pop/Dequeue</button>
+        <button id="sqClear" class="secondary">Clear</button>
+      </div>
+    </div>
+
+    <!-- Tree -->
+    <div data-panel="tree" style="display:none;">
+      <label>Operation</label>
+      <select id="treeOp">
+        <option value="insert">Insert (BST)</option>
+        <option value="inorder">Inorder</option>
+        <option value="preorder">Preorder</option>
+        <option value="postorder">Postorder</option>
+        <option value="level">Level-order</option>
+      </select>
+      <div class="row">
+        <div>
+          <label>Values (comma-separated)</label>
+          <input id="treeVals" type="text" placeholder="e.g., 8,3,10,1,6,14,4,7,13" />
+        </div>
+        <div>
+          <label>Single value</label>
+          <input id="treeVal" type="number" placeholder="e.g., 5" />
+        </div>
+      </div>
+      <div class="row">
+        <button id="treeInit" class="secondary">Build</button>
+        <button id="treeRun" class="primary">Run</button>
+      </div>
+    </div>
+
+    <!-- Graph -->
+    <div data-panel="graph" style="display:none;">
+      <label>Traversal</label>
+      <select id="graphTrav">
+        <option value="bfs">BFS</option>
+        <option value="dfs">DFS</option>
+      </select>
+      <div class="row">
+        <div>
+          <label>Nodes (comma)</label>
+          <input id="graphNodes" type="text" placeholder="e.g., A,B,C,D,E" />
+        </div>
+        <div>
+          <label>Edges u-v (comma)</label>
+          <input id="graphEdges" type="text" placeholder="e.g., A-B,B-C,A-D,D-E" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Start node</label>
+          <input id="graphStart" type="text" placeholder="e.g., A" />
+        </div>
+      </div>
+      <div class="row">
+        <button id="graphInit" class="secondary">Build</button>
+        <button id="graphRun" class="primary">Run</button>
+      </div>
+    </div>
+
+    <div class="badge" id="status">Ready</div>
+  </div>
+
+  <!-- Board & Log -->
+  <div class="card">
+    <div class="board" id="board"></div>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script>
+  // Common state and helpers
+  const speedInp = document.getElementById('speed');
+  const board = document.getElementById('board');
+  const logBox = document.getElementById('log');
+  const status = document.getElementById('status');
+  let paused = false, stopFlag = false;
+
+  const sleep = (ms) => new Promise(res => {
+    const tick = () => paused ? setTimeout(tick, 50) : res();
+    setTimeout(tick, ms);
+  });
+  function S() { return Math.max(50, Math.min(1200, Number(speedInp.value) || 220)); }
+  function log(msg) { const p = document.createElement('p'); p.textContent = msg; logBox.appendChild(p); logBox.scrollTop = logBox.scrollHeight; }
+  function setStatus(text) { status.textContent = text; }
+  function clearBoard() { board.innerHTML = ''; }
+  function resetRun() { stopFlag = true; setTimeout(() => { stopFlag = false; }, 60); logBox.innerHTML = ''; }
+
+  // Tabs
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('[data-panel]');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    const current = t.getAttribute('data-tab');
+    panels.forEach(p => p.style.display = (p.getAttribute('data-panel') === current) ? 'block' : 'none');
+    clearBoard(); logBox.innerHTML = ''; setStatus(`Tab: ${current}`);
+  }));
+
+  // Arrays & sorts
+  const algoSel = document.getElementById('algo');
+  const sizeInp = document.getElementById('size');
+  const valuesInp = document.getElementById('values');
+  const targetInp = document.getElementById('target');
+  const targetWrap = document.getElementById('binaryTargetWrap');
+  const genBtn = document.getElementById('generate');
+  const runBtn = document.getElementById('run');
+  let arr = [];
+
+  algoSel.addEventListener('change', () => {
+    const isBinary = algoSel.value === 'binary';
+    targetWrap.style.display = isBinary ? 'block' : 'none';
+  });
+  function parseNums(txt) {
+    const parts = txt.split(',').map(s => Number(s.trim())).filter(n => Number.isFinite(n));
+    return parts.length ? parts : null;
+  }
+  function renderArrayBlocks(a, active = [], compare = [], swap = [], doneIdx = []) {
+    clearBoard();
+    const row = document.createElement('div'); row.className = 'blocks-row';
+    a.forEach((v, i) => {
+      const b = document.createElement('div'); b.className = 'block';
+      if (active.includes(i)) b.classList.add('active');
+      if (compare.includes(i)) b.classList.add('compare');
+      if (swap.includes(i)) b.classList.add('swap');
+      if (doneIdx.includes(i)) b.classList.add('done');
+      b.textContent = v;
+      const idx = document.createElement('div'); idx.className = 'idx'; idx.textContent = i;
+      b.appendChild(idx);
+      row.appendChild(b);
+    });
+    board.appendChild(row);
+  }
+  function generateArray() {
+    const size = Math.max(5, Math.min(60, Number(sizeInp.value) || 10));
+    const explicit = valuesInp.value.trim() ? parseNums(valuesInp.value.trim()) : null;
+    arr = explicit || Array.from({ length: size }, () => Math.floor(Math.random() * 90) + 10);
+    renderArrayBlocks(arr); setStatus(`Array size=${arr.length}`); logBox.innerHTML = '';
+  }
+  async function selectionSort(a) {
+    const n = a.length;
+    for (let i = 0; i < n - 1 && !stopFlag; i++) {
+      let minIdx = i;
+      renderArrayBlocks(a, [i], [], [], Array.from({length: i}, (_, k) => k)); log(`i=${i}: find min`);
+      await sleep(S());
+      for (let j = i + 1; j < n && !stopFlag; j++) {
+        renderArrayBlocks(a, [i], [j, minIdx], [], Array.from({length: i}, (_, k) => k)); log(`compare j=${j} vs min=${minIdx}`);
+        await sleep(S());
+        if (a[j] < a[minIdx]) { minIdx = j; log(`new min=${minIdx}`); await sleep(S()); }
+      }
+      if (minIdx !== i) { [a[i], a[minIdx]] = [a[minIdx], a[i]]; renderArrayBlocks(a, [], [], [i, minIdx], Array.from({length: i+1}, (_, k) => k)); log(`swap ${i}<->${minIdx}`); await sleep(S()); }
+      else { renderArrayBlocks(a, [], [], [], Array.from({length: i+1}, (_, k) => k)); await sleep(S()); }
+    }
+    renderArrayBlocks(a, [], [], [], Array.from({length: n}, (_, k) => k)); log('Selection Sort: Done');
+  }
+  async function insertionSort(a) {
+    const n = a.length;
+    for (let i = 1; i < n && !stopFlag; i++) {
+      const key = a[i]; let j = i - 1;
+      renderArrayBlocks(a, [i], [], [], Array.from({length: i}, (_, k) => k)); log(`i=${i}, key=${key}`);
+      await sleep(S());
+      while (j >= 0 && a[j] > key && !stopFlag) {
+        a[j+1] = a[j]; j--; renderArrayBlocks(a, [j+1], [], [j+1], Array.from({length: j+1}, (_, k) => k)); log(`shift to ${j+1}`); await sleep(S());
+      }
+      a[j+1] = key; renderArrayBlocks(a, [], [], [j+1], Array.from({length: i+1}, (_, k) => k)); log(`place key at ${j+1}`); await sleep(S());
+    }
+    renderArrayBlocks(a, [], [], [], Array.from({length: n}, (_, k) => k)); log('Insertion Sort: Done');
+  }
+  async function bubbleSort(a) {
+    const n = a.length; let swapped = true;
+    for (let i = 0; i < n - 1 && swapped && !stopFlag; i++) {
+      swapped = false; log(`pass ${i}`);
+      for (let j = 0; j < n - i - 1 && !stopFlag; j++) {
+        renderArrayBlocks(a, [], [j, j+1], [], Array.from({length: i}, (_, k) => n-1-k)); await sleep(S());
+        if (a[j] > a[j+1]) { [a[j], a[j+1]] = [a[j+1], a[j]]; swapped = true; renderArrayBlocks(a, [], [], [j, j+1], Array.from({length: i}, (_, k) => n-1-k)); log(`swap ${j}<->${j+1}`); await sleep(S()); }
+      }
+    }
+    renderArrayBlocks(a, [], [], [], Array.from({length: n}, (_, k) => k)); log('Bubble Sort: Done');
+  }
+  async function binarySearchVisual(a, target) {
+    const b = [...a].sort((x, y) => x - y); arr = b; renderArrayBlocks(b); log(`sorted: [${b.join(', ')}]`); await sleep(S());
+    let low = 0, high = b.length - 1;
+    while (low <= high && !stopFlag) {
+      const mid = Math.floor((low + high) / 2);
+      renderArrayBlocks(b, [mid], [low, high]); log(`low=${low}, mid=${mid}, high=${high}`); await sleep(S());
+      if (b[mid] === target) { renderArrayBlocks(b, [], [], [], Array.from({length: b.length}, (_, k) => k)); setStatus(`Found at index ${mid}`); log(`found at ${mid}`); return mid; }
+      if (b[mid] < target) { low = mid + 1; log('go right'); } else { high = mid - 1; log('go left'); }
+      await sleep(S());
+    }
+    setStatus('Not found'); log('target not found'); return -1;
+  }
+  genBtn.addEventListener('click', generateArray);
+  runBtn.addEventListener('click', async () => {
+    resetRun(); await sleep(80); if (!arr.length) generateArray();
+    setStatus('Running'); renderArrayBlocks(arr);
+    if (algoSel.value === 'selection') { await selectionSort(arr); setStatus('Selection Sort Complete'); }
+    else if (algoSel.value === 'insertion') { await insertionSort(arr); setStatus('Insertion Sort Complete'); }
+    else if (algoSel.value === 'bubble') { await bubbleSort(arr); setStatus('Bubble Sort Complete'); }
+    else {
+      const target = Number(targetInp.value);
+      if (!Number.isFinite(target)) { log('Binary Search: set a valid target'); setStatus('Target required'); return; }
+      await binarySearchVisual(arr, target);
+    }
+  });
+
+  // Linked List
+  const listOp = document.getElementById('listOp');
+  const listVal = document.getElementById('listVal');
+  const listIdx = document.getElementById('listIdx');
+  const listInit = document.getElementById('listInit');
+  const listRun = document.getElementById('listRun');
+  let list = [];
+
+  function renderListBlocks(a, activeIdx = -1) {
+    clearBoard();
+    const row = document.createElement('div'); row.className = 'blocks-row';
+    a.forEach((v, i) => {
+      const b = document.createElement('div'); b.className = 'block'; if (i === activeIdx) b.classList.add('active');
+      b.textContent = v; row.appendChild(b);
+      if (i !== a.length - 1) { const arrw = document.createElement('span'); arrw.className='arrow'; arrw.textContent='→'; row.appendChild(arrw); }
+    });
+    if (!a.length) { const e = document.createElement('div'); e.className='label'; e.textContent='Empty list'; row.appendChild(e); }
+    board.appendChild(row);
+  }
+  listInit.addEventListener('click', () => {
+    list = Array.from({ length: 5 }, () => Math.floor(Math.random()*50)+10);
+    renderListBlocks(list); log('List initialized'); setStatus('List ready');
+  });
+  listRun.addEventListener('click', async () => {
+    resetRun(); await sleep(60);
+    const op = listOp.value;
+    const val = Number(listVal.value);
+    const idx = Number(listIdx.value);
+    if (op === 'append') {
+      if (!Number.isFinite(val)) return log('Provide value for append.');
+      list.push(val); renderListBlocks(list, list.length-1); log(`Append: ${val}`); await sleep(S());
+    } else if (op === 'prepend') {
+      if (!Number.isFinite(val)) return log('Provide value for prepend.');
+      list.unshift(val); renderListBlocks(list, 0); log(`Prepend: ${val}`); await sleep(S());
+    } else if (op === 'insertAt') {
+      if (!Number.isFinite(val) || !Number.isFinite(idx)) return log('Provide value and index.');
+      const i = Math.max(0, Math.min(list.length, idx));
+      list.splice(i, 0, val); renderListBlocks(list, i); log(`Insert ${val} at index ${i}`); await sleep(S());
+    } else if (op === 'deleteAt') {
+      if (!Number.isFinite(idx)) return log('Provide index.');
+      const i = Math.max(0, Math.min(list.length-1, idx));
+      const removed = list.splice(i, 1)[0]; renderListBlocks(list, i); log(`Delete value ${removed} at index ${i}`); await sleep(S());
+    } else if (op === 'reverse') {
+      for (let i = 0, j = list.length-1; i < j && !stopFlag; i++, j--) {
+        [list[i], list[j]] = [list[j], list[i]];
+        renderListBlocks(list, i); log(`Swap i=${i}, j=${j}`); await sleep(S());
+      }
+      renderListBlocks(list); log('Reverse: Done'); setStatus('List reversed');
+    }
+  });
+
+  // Stack & Queue
+  const sqStruct = document.getElementById('sqStruct');
+  const sqVal = document.getElementById('sqVal');
+  const sqPush = document.getElementById('sqPush');
+  const sqPop = document.getElementById('sqPop');
+  const sqClear = document.getElementById('sqClear');
+  let stack = [], queue = [];
+
+  function renderStackBlocks() {
+    clearBoard();
+    const wrap = document.createElement('div'); wrap.className='vertical';
+    stack.forEach((v, i) => {
+      const b = document.createElement('div'); b.className='block'; b.textContent=v;
+      if (i === stack.length-1) b.classList.add('active');
+      wrap.appendChild(b);
+    });
+    board.appendChild(wrap);
+    const lbl = document.createElement('div'); lbl.className='label'; lbl.textContent='Top';
+    board.appendChild(lbl);
+    if (!stack.length) { const e = document.createElement('div'); e.className='label'; e.textContent='Empty stack'; board.appendChild(e); }
+  }
+  function renderQueueBlocks() {
+    clearBoard();
+    const row = document.createElement('div'); row.className='blocks-row';
+    queue.forEach((v, i) => {
+      const b = document.createElement('div'); b.className='block'; b.textContent=v;
+      if (i === 0) b.classList.add('active');
+      row.appendChild(b);
+    });
+    board.appendChild(row);
+    const lbl = document.createElement('div'); lbl.className='label'; lbl.textContent='Front';
+    board.appendChild(lbl);
+    if (!queue.length) { const e = document.createElement('div'); e.className='label'; e.textContent='Empty queue'; board.appendChild(e); }
+  }
+  sqPush.addEventListener('click', async () => {
+    const v = Number(sqVal.value); if (!Number.isFinite(v)) return log('Enter a value.');
+    if (sqStruct.value === 'stack') { stack.push(v); renderStackBlocks(); log(`Push ${v}`); await sleep(S()); }
+    else { queue.push(v); renderQueueBlocks(); log(`Enqueue ${v}`); await sleep(S()); }
+  });
+  sqPop.addEventListener('click', async () => {
+    if (sqStruct.value === 'stack') { const x = stack.pop(); renderStackBlocks(); log(`Pop ${x}`); await sleep(S()); }
+    else { const x = queue.shift(); renderQueueBlocks(); log(`Dequeue ${x}`); await sleep(S()); }
+  });
+  sqClear.addEventListener('click', () => {
+    if (sqStruct.value === 'stack') { stack = []; renderStackBlocks(); log('Stack cleared'); }
+    else { queue = []; renderQueueBlocks(); log('Queue cleared'); }
+  });
+
+  // Binary Tree (BST)
+  const treeOp = document.getElementById('treeOp');
+  const treeVals = document.getElementById('treeVals');
+  const treeVal = document.getElementById('treeVal');
+  const treeInit = document.getElementById('treeInit');
+  const treeRun = document.getElementById('treeRun');
+
+  class TNode {
+    constructor(val){ this.val=val; this.left=null; this.right=null; }
+  }
+  let root = null;
+
+  function bstInsert(r, val) {
+    if (!r) return new TNode(val);
+    if (val < r.val) r.left = bstInsert(r.left, val); else r.right = bstInsert(r.right, val);
+    return r;
+  }
+  function buildBST(values) { root = null; for (const v of values) root = bstInsert(root, v); }
+  function levels(root) {
+    const out = [], q=[]; if (root) q.push({n:root,d:0});
+    while(q.length){ const {n,d}=q.shift(); (out[d]||(out[d]=[])).push(n); if(n.left) q.push({n:n.left,d:d+1}); if(n.right) q.push({n:n.right,d:d+1}); }
+    return out;
+  }
+  function renderTree(active = null) {
+    clearBoard();
+    const lvls = levels(root); const wrap = document.createElement('div'); wrap.className='tree';
+    lvls.forEach(level => {
+      const row = document.createElement('div'); row.className='tree-level';
+      level.forEach(n => { const b = document.createElement('div'); b.className='node'; if (n===active) b.classList.add('active'); b.textContent=n.val; row.appendChild(b); });
+      wrap.appendChild(row);
+    });
+    if (!lvls.length) { const e = document.createElement('div'); e.className='label'; e.textContent='Empty tree'; board.appendChild(e); } else board.appendChild(wrap);
+  }
+  async function visitOrder(orderFn, label) {
+    if (!root) { log('Build tree first.'); return; }
+    const seq = orderFn();
+    for (const n of seq) { renderTree(n); log(`${label}: visit ${n.val}`); await sleep(S()); }
+    renderTree(); log(`${label}: Done`); setStatus(`${label} complete`);
+  }
+  const inorderFn = () => { const res=[]; (function dfs(n){ if(!n) return; dfs(n.left); res.push(n); dfs(n.right); })(root); return res; };
+  const preorderFn = () => { const res=[]; (function dfs(n){ if(!n) return; res.push(n); dfs(n.left); dfs(n.right); })(root); return res; };
+  const postorderFn = () => { const res=[]; (function dfs(n){ if(!n) return; dfs(n.left); dfs(n.right); res.push(n); })(root); return res; };
+  const levelFn = () => { const res=[]; const q=[]; if(root) q.push(root); while(q.length){ const n=q.shift(); res.push(n); if(n.left) q.push(n.left); if(n.right) q.push(n.right); } return res; };
+
+  treeInit.addEventListener('click', () => {
+    const vals = parseNums(treeVals.value.trim() || '') || [8,3,10,1,6,14,4,7,13];
+    buildBST(vals); renderTree(); log(`BST built: [${vals.join(', ')}]`); setStatus('Tree ready');
+  });
+  treeRun.addEventListener('click', async () => {
+    const op = treeOp.value;
+    if (op === 'insert') {
+      const v = Number(treeVal.value); if (!Number.isFinite(v)) return log('Enter a value to insert.');
+      root = bstInsert(root, v); renderTree(); log(`Insert: ${v}`); await sleep(S());
+    } else if (op === 'inorder') { await visitOrder(inorderFn, 'Inorder'); }
+    else if (op === 'preorder') { await visitOrder(preorderFn, 'Preorder'); }
+    else if (op === 'postorder') { await visitOrder(postorderFn, 'Postorder'); }
+    else if (op === 'level') { await visitOrder(levelFn, 'Level-order'); }
+  });
+
+  // Graph (Adjacency list + BFS/DFS, block highlights for node order)
+  const graphTrav = document.getElementById('graphTrav');
+  const graphNodes = document.getElementById('graphNodes');
+  const graphEdges = document.getElementById('graphEdges');
+  const graphStart = document.getElementById('graphStart');
+  const graphInit = document.getElementById('graphInit');
+  const graphRun = document.getElementById('graphRun');
+
+  let G = { nodes: [], adj: {} };
+
+  function buildGraph(nodes, edges) {
+    G.nodes = nodes; G.adj = {}; nodes.forEach(id => G.adj[id] = []);
+    edges.forEach(([u,v]) => { if (G.adj[u]) G.adj[u].push(v); if (G.adj[v]) G.adj[v].push(u); });
+    Object.keys(G.adj).forEach(k => G.adj[k].sort());
+  }
+  function renderGraphBlocks(active = null, visitedSet = new Set()) {
+    clearBoard();
+    const listWrap = document.createElement('div'); listWrap.className='adj';
+    G.nodes.forEach(id => {
+      const line = document.createElement('div'); line.className='line';
+      const name = document.createElement('div'); name.className='name'; name.textContent = id;
+      line.appendChild(name);
+      const row = document.createElement('div'); row.className='blocks-row';
+      const head = document.createElement('div'); head.className='block small'; head.textContent=id;
+      if (active === id) head.classList.add('active');
+      if (visitedSet.has(id)) head.classList.add('done');
+      row.appendChild(head);
+      (G.adj[id] || []).forEach(nei => {
+        const b = document.createElement('div'); b.className='block small'; b.textContent=nei;
+        if (active === nei) b.classList.add('compare');
+        if (visitedSet.has(nei)) b.classList.add('done');
+        row.appendChild(b);
+      });
+      line.appendChild(row);
+      listWrap.appendChild(line);
+    });
+    if (!G.nodes.length) { const e = document.createElement('div'); e.className='label'; e.textContent='Empty graph'; board.appendChild(e); } else board.appendChild(listWrap);
+  }
+
+  graphInit.addEventListener('click', () => {
+    const nodes = (graphNodes.value.trim() || 'A,B,C,D,E').split(',').map(s => s.trim()).filter(Boolean);
+    const edges = (graphEdges.value.trim() || 'A-B,B-C,A-D,D-E').split(',').map(pair => {
+      const [u,v] = pair.split('-').map(s => s.trim()); return [u,v];
+    }).filter(([u,v]) => u && v);
+    buildGraph(nodes, edges); renderGraphBlocks(); log(`Graph built: nodes=${nodes.join(', ')}; edges=${edges.map(e=>e.join('-')).join(', ')}`); setStatus('Graph ready');
+  });
+  graphRun.addEventListener('click', async () => {
+    const start = (graphStart.value.trim() || G.nodes[0]); if (!G.nodes.includes(start)) return log('Start node must be in graph.');
+    if (graphTrav.value === 'bfs') {
+      const q = [start], vis = new Set([start]); log(`BFS start: ${start}`); renderGraphBlocks(start, vis); await sleep(S());
+      while (q.length && !stopFlag) {
+        const u = q.shift(); setStatus(`Visit ${u}`); renderGraphBlocks(u, vis); log(`Visit: ${u}`); await sleep(S());
+        for (const v of G.adj[u]) if (!vis.has(v)) { vis.add(v); q.push(v); log(`Enqueue: ${v}`); renderGraphBlocks(v, vis); await sleep(S()); }
+      }
+      renderGraphBlocks(null, vis); log('BFS: Done'); setStatus('BFS complete');
+    } else { // DFS
+      const vis = new Set(); log(`DFS start: ${start}`);
+      async function dfs(u) {
+        vis.add(u); setStatus(`Enter ${u}`); renderGraphBlocks(u, vis); log(`Enter: ${u}`); await sleep(S());
+        for (const v of G.adj[u]) if (!vis.has(v)) await dfs(v);
+      }
+      await dfs(start); renderGraphBlocks(null, vis); log('DFS: Done'); setStatus('DFS complete');
+    }
+  });
+
+  // Initialize defaults
+  generateArray();
+</script>
+</body>
+</html>
